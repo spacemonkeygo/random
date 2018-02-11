@@ -6,14 +6,9 @@ import (
 	"math"
 	"math/rand"
 	"time"
-
-	"github.com/spacemonkeygo/spacelog"
 )
 
-func init() {
-	spacelog.MustSetup("test", spacelog.SetupConfig{Level: "debug"})
-	rand.Seed(int64(time.Now().UnixNano()))
-}
+func init() { rand.Seed(int64(time.Now().UnixNano())) }
 
 func erfInv(val float64) float64 {
 	if val == 1 {
