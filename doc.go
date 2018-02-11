@@ -1,4 +1,4 @@
-// Copyright (C) 2016 Space Monkey, Inc.
+// Copyright (C) 2018. See AUTHORS.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,4 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// package random implements the randomized percentile algorithm
+//
+// as described by http://dimacs.rutgers.edu/~graham/pubs/papers/nquantiles.pdf
 package random // import "gopkg.in/spacemonkeygo/random.v1"

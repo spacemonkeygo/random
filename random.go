@@ -1,8 +1,5 @@
-// Copyright (C) 2015 Space Monkey, Inc.
+// Copyright (C) 2018. See AUTHORS.
 
-// package random implements the randomized percentile algorithm
-//
-// as described by http://dimacs.rutgers.edu/~graham/pubs/papers/nquantiles.pdf
 package random
 
 import (

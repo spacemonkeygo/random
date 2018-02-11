@@ -1,4 +1,4 @@
-// Copyright (C) 2015 Space Monkey, Inc.
+// Copyright (C) 2018. See AUTHORS.
 
 package random
 
