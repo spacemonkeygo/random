@@ -7,118 +7,6 @@ import (
 	"sort"
 )
 
-// mergeItem keeps track of a slice of data and what level the data is at.
-// it's different than a buffer because we want to be able to mutate the
-// slice, and the data is always sorted.
-type mergeItem struct {
-	data  []float64
-	level int64
-}
-
-// mergeSorter merges the list of data slices in linear time.
-type mergeSorter struct {
-	items []mergeItem
-}
-
-// newMergeSorter constructs a mergeSorter from a list of buffers.
-func newMergeSorter(items []mergeItem) mergeSorter {
-	return mergeSorter{
-		items: items,
-	}
-}
-
-// next returns the minimum value from all the buffers and which buffer it
-// came from. it will return false if it ran out of values.
-func (m *mergeSorter) next() (val float64, level int64, ok bool) {
-	if len(m.items) == 0 {
-		return 0, 0, false
-	}
-
-	val, idx := m.items[0].data[0], 0
-	for i := 1; i < len(m.items); i++ {
-		if cand := m.items[i].data[0]; cand < val {
-			val, idx = cand, i
-		}
-	}
-	item := &m.items[idx]
-
-	// if there's not enough values left in the item, swap the slice to the
-	// last position and slice it off so we never consider it again.
-	if len(item.data) <= 1 {
-		last := len(m.items) - 1
-		m.items[idx] = m.items[last]
-		m.items = m.items[:last]
-	} else {
-		// otherwise, consume the entry and as many as skip requires.
-		item.data = item.data[1:]
-	}
-
-	return val, item.level, true
-}
-
-// bufferMerger is a thing that can merge two buffers
-type bufferMerger struct {
-	coin    coin
-	scratch []float64
-}
-
-// newBufferMerger creates a buffer merger with the associated scratch space
-func newBufferMerger(scratch []float64, pcg pcg) *bufferMerger {
-	return &bufferMerger{
-		scratch: scratch,
-		coin: coin{
-			pcg: pcg,
-		},
-	}
-}
-
-// merge takes half of the values in b and puts them into a. the slices should
-// be sorted.
-func (b *bufferMerger) merge(dst, other *Buffer) {
-	b.scratch = b.scratch[:0]
-	merge := newMergeSorter([]mergeItem{
-		{data: dst.Data},
-		{data: other.Data},
-	})
-	use := b.coin.toss()
-	for {
-		value, _, ok := merge.next()
-		if !ok {
-			break
-		}
-		if use {
-			b.scratch = append(b.scratch, value)
-		}
-		use = !use
-	}
-
-	// increment the level and clear the other one.
-	dst.Level++
-	dst.Sorted = true
-	copy(dst.Data, b.scratch)
-	other.clear()
-}
-
-// copyBuffers returns a deep copy of all of the buffers in the given slice.
-func copyBuffers(buffers []Buffer) []Buffer {
-	out := make([]Buffer, 0, len(buffers))
-	for _, buf := range buffers {
-		out = append(out, Buffer{
-			Data:   append([]float64(nil), buf.Data...),
-			Level:  buf.Level,
-			Sorted: buf.Sorted,
-		})
-	}
-	return out
-}
-
-// byLevel sorts a slice of Buffers by their level, lowest first.
-type byLevel []Buffer
-
-func (b byLevel) Len() int           { return len(b) }
-func (b byLevel) Less(i, j int) bool { return b[i].Level < b[j].Level }
-func (b byLevel) Swap(i, j int)      { b[i], b[j] = b[j], b[i] }
-
 // Merge will merge the specified rs into a new FinishedRandom so that it is as
 // if the result observed all of the values from the passed in rs. It will
 // error if any of the epsilon values are different for the FinishedRandoms.
@@ -180,3 +68,23 @@ func Merge(seed uint64, r FinishedRandom, rs ...FinishedRandom) (
 
 	return out, nil
 }
+
+// copyBuffers returns a deep copy of all of the buffers in the given slice.
+func copyBuffers(buffers []Buffer) []Buffer {
+	out := make([]Buffer, 0, len(buffers))
+	for _, buf := range buffers {
+		out = append(out, Buffer{
+			Data:   append([]float64(nil), buf.Data...),
+			Level:  buf.Level,
+			Sorted: buf.Sorted,
+		})
+	}
+	return out
+}
+
+// byLevel sorts a slice of Buffers by their level, lowest first.
+type byLevel []Buffer
+
+func (b byLevel) Len() int           { return len(b) }
+func (b byLevel) Less(i, j int) bool { return b[i].Level < b[j].Level }
+func (b byLevel) Swap(i, j int)      { b[i], b[j] = b[j], b[i] }
