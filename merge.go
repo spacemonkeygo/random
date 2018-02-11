@@ -7,22 +7,18 @@ import (
 	"sort"
 )
 
-type rng interface {
-	Int63() int64
-}
-
 // coin is a simple struct to let us get random bools and make minimum calls
 // to the random number generator.
 type coin struct {
-	rng  rng
-	val  int64
+	pcg  pcg
+	val  uint32
 	bits int
 }
 
 func (c *coin) toss() (val bool) {
 	if c.bits == 0 {
-		c.val = c.rng.Int63()
-		c.bits = 63
+		c.val = c.pcg.Uint32()
+		c.bits = 32
 	}
 	c.bits--
 	val = c.val&1 > 0
@@ -86,11 +82,11 @@ type bufferMerger struct {
 }
 
 // newBufferMerger creates a buffer merger with the associated scratch space
-func newBufferMerger(scratch []float64, rng rng) *bufferMerger {
+func newBufferMerger(scratch []float64, pcg pcg) *bufferMerger {
 	return &bufferMerger{
 		scratch: scratch,
 		coin: coin{
-			rng: rng,
+			pcg: pcg,
 		},
 	}
 }
@@ -156,8 +152,7 @@ func Merge(seed uint64, r FinishedRandom, rs ...FinishedRandom) (
 	out = r
 	b, s := paramsFromEps(out.E)
 	buffers := make([]Buffer, 0, b*(1+len(rs)))
-	rng := lcg(seed)
-	merger := newBufferMerger(make([]float64, s), &rng)
+	merger := newBufferMerger(make([]float64, s), newPCG(seed, 0))
 	buffers = append(buffers, copyBuffers(r.Buffers)...)
 
 	for _, r := range rs {

@@ -109,10 +109,10 @@ type Random struct {
 	// in the ordering of the data. for example, if we had two servers reporting
 	// the values that pass might be in the order of A B A B, and so we'd always
 	// sample values from A or B. it is chosen's job to avoid that problem.
-	count     int64      // the number of elements we still need to observe
-	chosen    int64      // prechoose the value since we know the level
-	rand      *rand.Rand // used to reservoir sample
-	reservoir float64    // the current element in the reservoir
+	count     int     // the number of elements we still need to observe
+	chosen    int     // prechoose the value since we know the level
+	pcg       pcg     // used to reservoir sample
+	reservoir float64 // the current element in the reservoir
 
 	// level contains what level we're currently filling. it gets set when
 	// we choose a new bucket to fill based on the current value of n.
@@ -148,21 +148,18 @@ func NewRandomWithSeed(eps float64, seed uint64) *Random {
 	buf := &buffers[0]
 	buf.Level = 0
 
-	// create the lcg for the random reservoir sampling
-	rng := lcg(seed)
-
 	return &Random{
 		e: eps,
 		b: b,
 		s: s,
 
 		buffers: buffers,
-		merger:  newBufferMerger(make([]float64, s), &rng),
+		merger:  newBufferMerger(make([]float64, s), newPCG(seed, 0)),
 		cur:     buf,
 
 		count:  0,
 		chosen: 1,
-		rand:   rand.New(&rng),
+		pcg:    newPCG(seed, 1),
 
 		next: int64(s) * 1 << uint(b-1),
 	}
@@ -172,7 +169,7 @@ func NewRandomWithSeed(eps float64, seed uint64) *Random {
 // zero and picks the index that we'll pick for the next value.
 func (r *Random) resetCount() {
 	r.count = 0
-	r.chosen = r.rand.Int63n(1<<r.level) + 1
+	r.chosen = r.pcg.Intn(1<<r.level) + 1
 }
 
 // Add puts the value in the quantile estimator.
@@ -227,6 +224,8 @@ func (r *Random) Add(value float64) {
 	// find the lowest level with two buffers so we can merge them. there's a
 	// trivial algorithm to do this in O(N^2) time, so lets do that and
 	// optimize later. this doesn't show up on benchmarking.
+	//
+	// TODO(jeff): investigate distribution of add latencies.
 
 	// keep track of what the level has to be above during our search.
 	above := int32(-1)
@@ -242,7 +241,7 @@ func (r *Random) Add(value float64) {
 
 		// this should never happen.
 		if min_level == -1 {
-			panic("ran out of options")
+			panic("ran out of options to merge")
 		}
 
 		// search for the first two buckets with min_level
@@ -274,8 +273,6 @@ func (r *Random) Add(value float64) {
 		// nope couldn't find with that level, try again with a higher one.
 		above = min_level
 	}
-
-	panic("unreachable")
 }
 
 // Summarize is a helper that returns a Summary for a Random.
