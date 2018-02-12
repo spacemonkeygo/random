@@ -62,25 +62,20 @@ func (r FinishedRandom) summarize(elements []summaryElement) Summary {
 		})
 	}
 
-	// step one: create the list of summary elements sorted by value with the
-	// ranks set to the buffer's level.
+	// create the list of summary elements sorted by value with the ranks
+	// growing by the buffer's level.
 	merge := newMergeSorter(items)
+	rank := int64(0)
 	for {
 		value, level, ok := merge.next()
 		if !ok {
 			break
 		}
 		elements = append(elements, summaryElement{
-			rank:  level,
+			rank:  rank,
 			value: value,
 		})
-	}
-
-	// step two: fix up the ranks to be the actual ranks.
-	rank := int64(0)
-	for i := range elements {
-		ele := &elements[i]
-		ele.rank, rank = rank, rank+(1<<uint(ele.rank))
+		rank += (1 << uint64(level))
 	}
 
 	return Summary{
@@ -95,8 +90,20 @@ func (s Summary) Query(ptile float64) float64 {
 	idx := sort.Search(len(s.elements), func(idx int) bool {
 		return s.elements[idx].rank >= target
 	})
-	if idx > 0 {
-		idx--
+	if idx >= len(s.elements) {
+		return s.elements[len(s.elements)-1].value
 	}
-	return s.elements[idx].value
+	below_idx, above_idx := 0, len(s.elements)
+	if idx < len(s.elements) {
+		above_idx = idx
+	}
+	if idx > 1 {
+		below_idx = idx - 1
+	}
+	if above_idx == below_idx {
+		return s.elements[above_idx].value
+	}
+	below, above := s.elements[below_idx], s.elements[above_idx]
+	x := float64(target-below.rank) / float64(above.rank-below.rank)
+	return below.value + (above.value-below.value)*x
 }

@@ -21,7 +21,7 @@ func TestMonotonic_Normal(t *testing.T) {
 		s := r.Summarize()
 
 		last := s.Query(0.00)
-		for ptile := 0.01; ptile < 1.01; ptile += 0.01 {
+		for ptile := 0.0; ptile <= 1.0; ptile += 1.0 / 64 {
 			qu, ex := s.Query(ptile), probit(ptile)
 			t.Logf("%0.2f,%v,%v,%v", ptile, qu, ex, math.Abs(qu-ex))
 			if query := s.Query(ptile); query < last {
